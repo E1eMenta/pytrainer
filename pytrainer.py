@@ -22,17 +22,27 @@ class Trainer:
         self.criterion = criterion
         self.validation = validation
         self.git_save = git_save
-        self.extra_callbacks = callbacks
+        self.extra_callbacks = [callback for callback in callbacks if callback is not None]
 
         if resume:
             checkpoint = torch.load(resume)
             self.model.load_state_dict(checkpoint['model'].state_dict())
 
+        self.epoch = 0
+        self.iteration = 0
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        torch.backends.cudnn.benchmark = True
+
+        self.model.to(self.device)
+        self.model = torch.nn.DataParallel(self.model)
+        self.model.train()
+
+
 
     def fit(
             self,
             dataloader,
-
             report_steps=100,
             val_steps=500,
             save_steps=5000,
@@ -40,28 +50,20 @@ class Trainer:
             max_epoch=10e15,
             tag=""
     ):
-        self.epoch = 0
-        self.iteration = 0
-
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        torch.backends.cudnn.benchmark = True
-
-        self.model.to(device)
-        self.model = torch.nn.DataParallel(self.model)
-        self.model.train()
-
         # Set default self.callbacks
         self.callbacks = [
             BaseLogger(tag, report_steps),
             CheckpointSaver(save_steps)
         ]
         self.callbacks = CallbackList(self.callbacks)
+
         if self.git_save:
             self.callbacks.append(GitSaver())
         if self.validation:
             self.callbacks.append(ValidationCallback(self.validation, val_steps))
         [self.callbacks.append(extra_callback) for extra_callback in self.extra_callbacks]
         self.callbacks.set_params(self, self.model)
+
         self.logs = {
             "optimizer": self.optimizer,
             "save_fn": self.save_checkpoint
@@ -75,7 +77,7 @@ class Trainer:
                 for data in dataloader:
                     self.callbacks.on_batch_begin(self.iteration, self.logs)
 
-                    data = to_device(data, device)
+                    data = to_device(data, self.device)
                     inputs, target = data
 
                     self.optimizer.zero_grad()
