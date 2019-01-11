@@ -105,7 +105,8 @@ class Trainer:
         except KeyboardInterrupt:
             self.finish_train()
 
-        self.finish_train()
+        self.callbacks.on_train_end(self.logs)
+        return self.model
 
     def finish_train(self):
           print("Train of model {} finished".format(self.model.module.__class__.__name__))

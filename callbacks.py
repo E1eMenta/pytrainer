@@ -192,6 +192,7 @@ class BaseLogger(Callback):
                 print(loss_name + ": {0:.4}, ".format(avg.cpu().item()), end=" ")
                 self.writer.add_scalar(loss_name, avg, batch)
             print()
+            self.writer.add_scalar("lr", logs["optimizer"].param_groups[0]['lr'], batch)
 
             self.loss_accumulator.reset()
             self.batch_time.reset()
